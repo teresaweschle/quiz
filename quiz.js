@@ -10,6 +10,7 @@ let currentQuestion;
 let currentAnswers;
 let currentCorrectAnswer;
 let score = 0;
+let playerName = "player9";
 
 //setup data from api for the first question
 var request = new XMLHttpRequest();
@@ -31,12 +32,18 @@ function showStartPage() {
   addStartBtns();
 }
 function removeQuestion() {
+  const gameoverContainerEl = document.querySelector(".gameoverContainer");
+  if (gameoverContainerEl) {
+    document.body.removeChild(gameoverContainerEl);
+  }
   if (backBtn) {
     document.body.removeChild(questionPageContainer);
+    //backBtn = false;
   }
   if (questionBox) {
     questionBox = document.querySelector(".question-box");
     document.body.removeChild(questionBox);
+    //questionBox = false;
   }
 }
 // add and remove buttons
@@ -67,25 +74,39 @@ function showBtn(btn) {
 function SwitchBtn(btn) {
   btn.classList.toggle("hide-btn");
 }
+
 // start game
+// API Service Method
 function getQuestionFromApi2(onQuestionReceived) {
-  fetch("https://opentdb.com/api.php?amount=2&type=multiple").then(
-    (response) => {
-      console.log(response.body);
-      const data = JSON.parse(response);
+  fetch("https://opentdb.com/api.php?amount=2&type=multiple")
+    .then((response) => {
+      return response.json();
+    })
+    .then((data) => {
       questionsApi = data.results;
       currentQuestion = questionsApi[0].question;
       currentAnswers = questionsApi[0].incorrect_answers;
       currentCorrectAnswer = questionsApi[0].correct_answer;
-      currentAnswers.push(currentCorrectAnswer);
+      const randomIndex = Math.floor(Math.random() * 4);
+      currentAnswers.splice(randomIndex, 0, currentCorrectAnswer);
       onQuestionReceived();
-      // stop waiting screen
-    }
-  );
+    });
+  // stop waiting screen
+
   // show wait screen
 }
 
-function getQuestionFromApi(onQuestionReceived) {
+// Alternative Version of getQuestionFromApi
+function getQuestionFromApiAsync() {
+  return fetch("https://opentdb.com/api.php?amount=2&type=multiple").then(
+    (response) => {
+      return response.json();
+    }
+  );
+}
+
+// API Service Method
+function getQuestionFromApi_Alt(onQuestionReceived) {
   var request = new XMLHttpRequest();
   request.open("GET", "https://opentdb.com/api.php?amount=2&type=multiple");
   request.onload = (e) => {
@@ -121,12 +142,17 @@ function addQuestion() {
 function startGame() {
   score = 0;
   removeStartBtns();
-  loadNextQuestion();
+  loadNextQuestion("start");
 }
 
-function loadNextQuestion() {
+function loadNextQuestion(value) {
+  if (value !== "start") {
+    removeQuestion();
+  }
   getQuestionFromApi2(getQuestionPage);
-  // removeQuestion();
+  // getQuestionFromApiAsync().then((result) => {
+  //   getQuestionPage();
+  // });
   // addButtonsStuffTeresa();
 }
 
@@ -147,23 +173,27 @@ function getQuestionPage() {
   backBtn.addEventListener("click", showStartPage);
 }
 
-function evaluateAnswer(answer) {
-  answerBtns = document.querySelectorAll(".answerbtn");
-  if (currentCorrectAnswer === answer.innerText) {
+function evaluateAnswer(answerButton) {
+  let gameOver = false;
+  const answerBtns = document.querySelectorAll(".answerbtn");
+  if (currentCorrectAnswer === answerButton.innerText) {
     updateScore(1);
-    answer.classList.add("success");
-    answer.classList.remove("fail");
+    answerButton.classList.add("success");
+    answerButton.classList.remove("fail");
     answerBtns.forEach(function (item) {
+      item.onclick = null;
       if (item.innerText !== currentCorrectAnswer) {
         item.classList.add("answered");
         item.classList.remove("success");
       }
     });
   } else {
+    gameOver = true;
     updateScore(0);
-    answer.classList.add("fail");
-    answer.classList.remove("success");
+    answerButton.classList.add("fail");
+    answerButton.classList.remove("success");
     answerBtns.forEach(function (item) {
+      item.onclick = null;
       if (item.innerText == currentCorrectAnswer) {
         item.classList.remove("fail");
         item.classList.add("success");
@@ -171,11 +201,38 @@ function evaluateAnswer(answer) {
       item.classList.add("answered");
     });
   }
-  //wait = setInterval(loadNextQuestion(), 10000);
+  // backContainer.innerHTML += nextBtnString;
+  if (gameOver) {
+    updateLocalStorage(score);
+    const gameOverEl = document.createElement("div");
+    gameOverEl.innerHTML = `<p class="gameover"> GAMEOVER
+  </p>`;
+    gameOverEl.classList.add("gameoverContainer");
+    document.body.appendChild(gameOverEl);
+  } else {
+    const nextBtnElement = document.createElement("button");
+    nextBtnElement.innerHTML = "next question";
+    nextBtnElement.classList.add("button");
+    nextBtnElement.classList.add("next");
+    backContainer.appendChild(nextBtnElement);
+    nextBtnElement.addEventListener("click", loadNextQuestion);
+  }
 }
 
 function updateScore(value) {
   score += value;
   const scoreEl = document.getElementById("score");
   scoreEl.innerText = `Score: ${score}`;
+}
+
+function getLocalStorage() {
+  return localStorage.getItem("highscores")
+    ? JSON.parse(localStorage.getItem("highscores"))
+    : new Object();
+}
+
+function updateLocalStorage(value) {
+  let highscorelist = getLocalStorage();
+  highscorelist[playerName] = value;
+  localStorage.setItem("highscores", JSON.stringify(highscorelist));
 }

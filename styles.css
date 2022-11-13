@@ -61,3 +61,11 @@ body {
 .success{
     background-color: green;
 }
+.gameoverContainer{
+    text-align: center;
+}
+
+.gameover{
+    color:red;
+
+}
